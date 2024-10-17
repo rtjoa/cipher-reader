@@ -12,7 +12,7 @@ import time
 
 WORD_SOURCE="https://raw.githubusercontent.com/first20hours/google-10000-english/refs/heads/master/google-10000-english-no-swears.txt"
 CACHE_FILE="common_words.txt"
-CIPHER_FILE="cipher.txt"
+DEFAULT_CIPHER_FILE="cipher.txt"
 
 MNEMONIC_OVERRIDES=[]
 MNEMONIC_OVERRIDES_FILE = "mnemonic_overrides.txt"
@@ -34,29 +34,30 @@ def unique(it):
             yield x
             seen.add(x)
 
-def set_cipher():
+def set_cipher(cipher_file):
+    print(f"setting {cipher_file}")
     while len(cipher := input(f"{alphabet} should correpond to:\n")) != 26:
         print("len 26 required")
-    with open(CIPHER_FILE, "w") as file:
+    with open(cipher_file, "w") as file:
         file.write(cipher)
     return cipher
 
-def try_get_cipher():
-  if not os.path.exists(CIPHER_FILE):
-      return False, f"{CIPHER_FILE} doesn't exist"
-  with open(CIPHER_FILE, "r") as file:
+def try_get_cipher(cipher_file):
+  if not os.path.exists(cipher_file):
+      return False, f"{cipher_file} doesn't exist"
+  with open(cipher_file, "r") as file:
       s = file.read().strip()
       if len(s) != 26:
-          return False, f"cipher should have length 26. read {CIPHER_FILE} to be:\n{s}"
+          return False, f"cipher should have length 26. read {cipher_file} to be:\n{s}"
       return True, s
 
-def get_cipher_set_if_needed():
-    success, cipher_or_error = try_get_cipher()
+def get_cipher_set_if_needed(cipher_file):
+    success, cipher_or_error = try_get_cipher(cipher_file)
     if success:
         cipher = cipher_or_error
     else:
         print(cipher_or_error)
-        cipher = set_cipher()
+        cipher = set_cipher(cipher_file)
     return {k:v for k, v in zip(alphabet, cipher, strict=True)}
 
 def common_words():
@@ -100,7 +101,7 @@ def play_game(letters_mode):
         print(f"correct: {sum(recent_history)}/{len(recent_history)}")
         print(f"sec/answer: {sum(recent_times)/len(recent_times) if recent_times else float('inf'):.2f}")
         print(f"")
-        print(translated)
+        print(f"? {translated}")
         right = True
         gave_up = False
         tic = time.monotonic()
@@ -145,13 +146,14 @@ def main():
     parser.add_argument("-l", "--letters-mode", action="store_true")
     parser.add_argument("-c", "--cheatsheet", action="store_true")
     parser.add_argument("-s", "--set-cipher", action="store_true")
+    parser.add_argument("-i", "--input-cipher-file", default=DEFAULT_CIPHER_FILE)
     args = parser.parse_args()
 
     global m
     if args.set_cipher:
-        m = set_cipher()
+        m = set_cipher(args.input_cipher_file)
     else:
-        m = get_cipher_set_if_needed()
+        m = get_cipher_set_if_needed(args.input_cipher_file)
 
     if args.cheatsheet:
         l = list(m.items())
