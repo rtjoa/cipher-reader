@@ -8,6 +8,7 @@ import os
 import subprocess
 import string
 import argparse
+import time
 
 WORD_SOURCE="https://raw.githubusercontent.com/first20hours/google-10000-english/refs/heads/master/google-10000-english-no-swears.txt"
 CACHE_FILE="common_words.txt"
@@ -25,6 +26,13 @@ if os.path.exists(MNEMONIC_OVERRIDES_FILE):
 m = None
 
 alphabet = "abcdefghijklmnopqrstuvwxyz"
+
+def unique(it):
+    seen = set()
+    for x in it:
+        if x not in seen:
+            yield x
+            seen.add(x)
 
 def set_cipher():
     while len(cipher := input(f"{alphabet} should correpond to:\n")) != 26:
@@ -73,30 +81,45 @@ def play_game(letters_mode):
     word_to_streak = Counter()
     word_to_cooldown = Counter()
     history = []
+    times = []
     while True:
         os.system('cls' if os.name == 'nt' else 'clear')
         if letters_mode:
-            order = sorted(word_to_cooldown.keys(), key=lambda k:(word_to_streak[k],word_to_cooldown[k]))
+            order = sorted(word_to_cooldown.keys(), key=lambda v:(word_to_streak[v],word_to_cooldown[v]))
             print(f"streak   {show_dict(word_to_streak, order)}")
             print(f"cooldown {show_dict(word_to_cooldown, order)}")
         word = choice(words)
-        if word_to_cooldown[word] > 0:
-            word_to_cooldown[word] -= 1
+        translated = ''.join(m[c] for c in word)
+        if word_to_cooldown[translated] > 0:
+            word_to_cooldown[translated] -= 1
             continue
 
         recent_history = history[-50:]
+        recent_times = times[-50:]
         # print(f"{sum(history)}/{len(history)} overall | {sum(recent_history)}/{len(recent_history)} recent")
-        print(f"{sum(recent_history)}/{len(recent_history)} recent")
-        translated = ''.join(m[c] for c in word)
+        print(f"correct: {sum(recent_history)}/{len(recent_history)}")
+        print(f"sec/answer: {sum(recent_times)/len(recent_times) if recent_times else float('inf'):.2f}")
+        print(f"")
         print(translated)
         right = True
-        while input("> ") != word:
+        gave_up = False
+        tic = time.monotonic()
+        while (guess := input("> ")) != word:
+            if guess == " ":
+                gave_up = True
+                right = False
+                for k in unique(word):
+                    print(get_mnemonic(k))
+                input()
+                break
             right = False
-        if right:
-            word_to_streak[word] += 1
+        toc = time.monotonic()
+        if not gave_up:
+            word_to_streak[translated] += 1
+            times.append(toc - tic)
         else:
-            word_to_streak[word] = max(0, word_to_streak[word] - 1)
-        word_to_cooldown[word] = 2 ** word_to_streak[word] - 1
+            word_to_streak[translated] = max(0, word_to_streak[translated] - 1)
+        word_to_cooldown[translated] = 2 ** word_to_streak[translated] - 1
         history.append(right)
 
 def mnemonic_goodness(word):
@@ -105,6 +128,17 @@ def mnemonic_goodness(word):
     if len(word) >= 3:
         return 2
     return 1
+
+def get_mnemonic(k):
+    v = m[k]
+    overrides = {w[0]+w[-1]:w for w in MNEMONIC_OVERRIDES}
+    if (v + k) in overrides:
+        return overrides[v + k]
+    mnemonics = list(filter(
+        lambda w: w.startswith(v) and w.endswith(k),
+        common_words()
+    ))
+    return max(mnemonics, key=mnemonic_goodness, default=v+k)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -125,16 +159,8 @@ def main():
         print(" ".join(v for (k, v) in l))
         print(" ".join(k for (k, v) in l))
         print()
-        overrides = {w[0]+w[-1]:w for w in MNEMONIC_OVERRIDES}
         for k, v in l:
-            if (v + k) in overrides:
-                print(overrides[v + k])
-                continue
-            mnemonics = list(filter(
-                lambda w: w.startswith(v) and w.endswith(k),
-                common_words()
-            ))
-            print(max(mnemonics, key=mnemonic_goodness, default=v+k))
+            print(get_mnemonic(k))
         print()
         return
 
