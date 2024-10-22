@@ -53,13 +53,13 @@ def set_cipher(cipher_file):
     return cipher
 
 def try_get_cipher(cipher_file):
-  if not path_exists_wrt_script(cipher_file):
-      return False, f"{cipher_file} doesn't exist"
-  with open(wrt_script(cipher_file), "r") as file:
-      s = file.read().strip()
-      if len(s) != 26:
-          return False, f"cipher should have length 26. read {cipher_file} to be:\n{s}"
-      return True, s
+    if not path_exists_wrt_script(cipher_file):
+        return False, f"{cipher_file} doesn't exist"
+    with open(wrt_script(cipher_file), "r") as file:
+        s = file.read().strip()
+        if len(s) != 26:
+            return False, f"cipher should have length 26. read {cipher_file} to be:\n{s}"
+        return True, s
 
 def get_cipher_set_if_needed(cipher_file):
     success, cipher_or_error = try_get_cipher(cipher_file)
@@ -71,11 +71,11 @@ def get_cipher_set_if_needed(cipher_file):
     return {k:v for k, v in zip(alphabet, cipher, strict=True)}
 
 def common_words():
-  if not path_exists_wrt_script(CACHE_FILE):
-      subprocess.run(["wget", WORD_SOURCE, "-O", CACHE_FILE])
+    if not path_exists_wrt_script(CACHE_FILE):
+        subprocess.run(["wget", WORD_SOURCE, "-O", CACHE_FILE])
 
-  with open(wrt_script(CACHE_FILE), "r") as file:
-      return [s.strip() for s in file.readlines()]
+    with open(wrt_script(CACHE_FILE), "r") as file:
+        return [s.strip() for s in file.readlines()]
 
 def get_words(letters_mode):
     if letters_mode:
@@ -107,7 +107,6 @@ def play_game(letters_mode):
 
         recent_history = history[-50:]
         recent_times = times[-50:]
-        # print(f"{sum(history)}/{len(history)} overall | {sum(recent_history)}/{len(recent_history)} recent")
         print(f"correct: {sum(recent_history)}/{len(recent_history)}")
         print(f"sec/answer: {sum(recent_times)/len(recent_times) if recent_times else float('inf'):.2f}")
         print(f"")
@@ -164,52 +163,62 @@ def translate(s, reverse=False, error_on_unspecified_char=True):
             return c
     return "".join(map(translate_char, s))
 
+def cmd_quiz(args):
+    play_game(args.letters_mode)
+
+def cmd_cheatsheet(args):
+    l = list(m.items())
+    l.sort(key=lambda kv:kv[1])
+    print(" ".join(v for (k, v) in l))
+    print(" ".join(k for (k, v) in l))
+    print()
+    for k, v in l:
+        print(get_mnemonic(k))
+    print()
+
+def cmd_set_cipher(args):
+    global m
+    m = set_cipher(args.input_cipher_file)
+
+def cmd_translate(args):
+    for line in list(sys.stdin):
+        print(translate(line, reverse=args.reverse, error_on_unspecified_char=False), end='')
+
 def main():
     parser = argparse.ArgumentParser()
-    # flag of all subcommands
-    parser.add_argument("-i", "--input-cipher-file", default=DEFAULT_CIPHER_FILE)
+    parser.add_argument("-i", "--input-cipher-file", default=DEFAULT_CIPHER_FILE,
+                       help="Specify the cipher file to use")
 
-    # flag of the "quiz" subcommand
-    parser.add_argument("-l", "--letters-mode", action="store_true")
+    subparsers = parser.add_subparsers(dest='command', required=True,
+                                      help='Command to execute')
 
-    # TODO: these should be subcommands (using subparsers) instead of flags
-    # the lack of any of the following indicates the "quiz" subcommand
-    parser.add_argument("-c", "--cheatsheet", action="store_true")
-    parser.add_argument("-s", "--set-cipher", action="store_true")
-    parser.add_argument("-t", "--translate-mode", action="store_true")
+    # Quiz command
+    quiz_parser = subparsers.add_parser('quiz', help='Practice the cipher')
+    quiz_parser.add_argument("-l", "--letters-mode", action="store_true",
+                           help="Practice with single letters instead of words")
+    quiz_parser.set_defaults(func=cmd_quiz)
 
-    # this should be a flap called --reverse to translate mode
-    parser.add_argument("-u", "--untranslate-mode", action="store_true")
+    # Cheatsheet command
+    cheatsheet_parser = subparsers.add_parser('cheatsheet', help='Show cipher cheatsheet')
+    cheatsheet_parser.set_defaults(func=cmd_cheatsheet)
+
+    # Set cipher command
+    set_parser = subparsers.add_parser('set', help='Set a new cipher')
+    set_parser.set_defaults(func=cmd_set_cipher)
+
+    # Translate command
+    translate_parser = subparsers.add_parser('translate', help='Translate text using the cipher')
+    translate_parser.add_argument("-r", "--reverse", action="store_true",
+                                help="Reverse the translation direction")
+    translate_parser.set_defaults(func=cmd_translate)
 
     args = parser.parse_args()
 
     global m
-    if args.set_cipher:
-        m = set_cipher(args.input_cipher_file)
-    else:
+    if args.command != 'set':
         m = get_cipher_set_if_needed(args.input_cipher_file)
 
-    if args.cheatsheet:
-        l = list(m.items())
-        l.sort(key=lambda kv:kv[1])
-        print(" ".join(v for (k, v) in l))
-        print(" ".join(k for (k, v) in l))
-        print()
-        for k, v in l:
-            print(get_mnemonic(k))
-        print()
-        return
+    args.func(args)
 
-    if args.translate_mode:
-        for line in list(sys.stdin):
-            print(translate(line, error_on_unspecified_char=False), end='')
-        return
-    
-    if args.untranslate_mode:
-        for line in list(sys.stdin):
-            print(translate(line, reverse=True, error_on_unspecified_char=False), end='')
-        return
-
-    play_game(args.letters_mode)
-
-main()
+if __name__ == "__main__":
+    main()
