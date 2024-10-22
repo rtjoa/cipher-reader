@@ -9,6 +9,7 @@ import subprocess
 import string
 import argparse
 import time
+import sys
 
 def wrt_script(path):
     if os.path.isabs(path):
@@ -150,12 +151,36 @@ def get_mnemonic(k):
     ))
     return max(mnemonics, key=mnemonic_goodness, default=v+k)
 
+def translate(s, reverse=False, error_on_unspecified_char=True):
+    m_ = m
+    if reverse:
+        m_ = {v:k for k, v in m.items()}
+    def translate_char(c):
+        if c in m_:
+            return m_[c]
+        elif error_on_unspecified_char:
+            raise ValueError(f"{c} {m_}")
+        else:
+            return c
+    return "".join(map(translate_char, s))
+
 def main():
     parser = argparse.ArgumentParser()
+    # flag of all subcommands
+    parser.add_argument("-i", "--input-cipher-file", default=DEFAULT_CIPHER_FILE)
+
+    # flag of the "quiz" subcommand
     parser.add_argument("-l", "--letters-mode", action="store_true")
+
+    # TODO: these should be subcommands (using subparsers) instead of flags
+    # the lack of any of the following indicates the "quiz" subcommand
     parser.add_argument("-c", "--cheatsheet", action="store_true")
     parser.add_argument("-s", "--set-cipher", action="store_true")
-    parser.add_argument("-i", "--input-cipher-file", default=DEFAULT_CIPHER_FILE)
+    parser.add_argument("-t", "--translate-mode", action="store_true")
+
+    # this should be a flap called --reverse to translate mode
+    parser.add_argument("-u", "--untranslate-mode", action="store_true")
+
     args = parser.parse_args()
 
     global m
@@ -173,6 +198,16 @@ def main():
         for k, v in l:
             print(get_mnemonic(k))
         print()
+        return
+
+    if args.translate_mode:
+        for line in list(sys.stdin):
+            print(translate(line, error_on_unspecified_char=False), end='')
+        return
+    
+    if args.untranslate_mode:
+        for line in list(sys.stdin):
+            print(translate(line, reverse=True, error_on_unspecified_char=False), end='')
         return
 
     play_game(args.letters_mode)
