@@ -10,14 +10,23 @@ import string
 import argparse
 import time
 
+def wrt_script(path):
+    if os.path.isabs(path):
+        return path
+    else:
+        return os.path.join(os.path.dirname(__file__), path)
+
+def path_exists_wrt_script(path):
+    return os.path.exists(wrt_script(path))
+
 WORD_SOURCE="https://raw.githubusercontent.com/first20hours/google-10000-english/refs/heads/master/google-10000-english-no-swears.txt"
 CACHE_FILE="common_words.txt"
 DEFAULT_CIPHER_FILE="cipher.txt"
 
 MNEMONIC_OVERRIDES=[]
 MNEMONIC_OVERRIDES_FILE = "mnemonic_overrides.txt"
-if os.path.exists(MNEMONIC_OVERRIDES_FILE):
-    with open(MNEMONIC_OVERRIDES_FILE) as file:
+if path_exists_wrt_script(MNEMONIC_OVERRIDES_FILE):
+    with open(wrt_script(MNEMONIC_OVERRIDES_FILE)) as file:
         for line in file.readlines():
             if stripped := line.strip():
                 MNEMONIC_OVERRIDES.append(stripped)
@@ -38,14 +47,14 @@ def set_cipher(cipher_file):
     print(f"setting {cipher_file}")
     while len(cipher := input(f"{alphabet} should correpond to:\n")) != 26:
         print("len 26 required")
-    with open(cipher_file, "w") as file:
+    with open(wrt_script(cipher_file), "w") as file:
         file.write(cipher)
     return cipher
 
 def try_get_cipher(cipher_file):
-  if not os.path.exists(cipher_file):
+  if not path_exists_wrt_script(cipher_file):
       return False, f"{cipher_file} doesn't exist"
-  with open(cipher_file, "r") as file:
+  with open(wrt_script(cipher_file), "r") as file:
       s = file.read().strip()
       if len(s) != 26:
           return False, f"cipher should have length 26. read {cipher_file} to be:\n{s}"
@@ -61,10 +70,10 @@ def get_cipher_set_if_needed(cipher_file):
     return {k:v for k, v in zip(alphabet, cipher, strict=True)}
 
 def common_words():
-  if not os.path.exists(CACHE_FILE):
+  if not path_exists_wrt_script(CACHE_FILE):
       subprocess.run(["wget", WORD_SOURCE, "-O", CACHE_FILE])
 
-  with open(CACHE_FILE, "r") as file:
+  with open(wrt_script(CACHE_FILE), "r") as file:
       return [s.strip() for s in file.readlines()]
 
 def get_words(letters_mode):
